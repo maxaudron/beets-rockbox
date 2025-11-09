@@ -1,0 +1,55 @@
+[project]
+name = "beets-rockbox"
+version = "1.0.0"
+license = "MIT"
+dependencies = ["beets>=1.6.0, <3", "typing-extensions>=4.9.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["/beetsplug", "/CHANGELOG.md", "/README.md", "/LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["beetsplug"]
+
+[tool.black]
+line-length = 100
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = "warning"
+reportUnusedImport = "warning"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+
+[tool.ruff]
+target-version = "py310"
+unsafe-fixes = true
+preview = true
+
+[tool.ruff.lint]
+extend-select = [
+  "I",    # Sort imports
+  "C",    # Pyflakes conventions
+  "PTH",  # Use pathlib instead of os
+  "PIE",  # Misc. lints
+  "UP",   # Enforce modern Python syntax
+  "FURB", # Also enforce more modern Python syntax
+  "PT",   # Pytest style
+  "B",    # Bugbear, avoid common sources of bugs
+  "SIM",  # Simplify
+  "T20",  # Warn about `print()`
+  "RUF",
+  "C4",   # List comprehension
+]
+ignore = [
+  # Pyright checks for unused imports and does it better.
+  "F401",
+  # ternary can be less readable
+  "SIM108",
+]
+
+allowed-confusables = ["’"]
