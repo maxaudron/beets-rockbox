@@ -13,15 +13,22 @@ class Config:
     """Directory where your .rockbox folder is located. Used for copying over the database to the device"""
 
     music: str
-    """Absolute path where music is stored on the rockbox device. Example: <HDD0>/Music"""
+    """Absolute path where music is stored on the rockbox device. Example: "/<HDD0>/Music"."""
 
-    extension: str | None = None
-    """If set, overrides the extension of the filepaths to the one provided"""
+    formats: list[str] | None = None
+    """If set, overrides the extension of any files with an extension not in this list
+    with the first one provided.
+    Example:
+    extension: ["opus", "mp3"]
+    """
 
     query: Query
     """Query to restrict which files are included in rockbox database
     e.g set this to the same value as the beets-alternatives library used
     """
+
+    unknown: str = "<Unknown>"
+    """String to use as placeholder for unknown values. Default: "<Unknown>"."""
 
     mount_command: str | None = None
     umount_command: str | None = None
@@ -36,8 +43,11 @@ class Config:
         self.music = config["music"].as_str()  # pyright: ignore
         assert isinstance(self.music, str)
 
-        if "extension" in config:
-            self.extension = config["extension"].as_str()  # pyright: ignore
+        if "formats" in config:
+            self.formats = config["formats"].get()  # pyright: ignore
+        
+        if "unknown" in config:
+            self.unknown = config["unknown"].as_str()  # pyright: ignore
 
         query = config["query"].get(confuse.Optional(confuse.String(), default=""))
         self.query, _ = parse_query_string(query, Item)

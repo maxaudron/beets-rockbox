@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from beets.library import Item, Library
+from beets.ui import print_
 
 from beetsplug.rockbox.config import Config
 
@@ -31,12 +32,12 @@ class TagfileEntry:
     tag_data: bytes
 
     """byte offset used for computing seek positions"""
-    offset: int
+    seek: int
 
     def __init__(self, tag_data: str, offset: int, idx: int | None = None):
         self.tag_data = bytes(tag_data + "\0", encoding="utf8")
         self.tag_length = len(self.tag_data)
-        self.offset = offset
+        self.seek = offset
 
         if idx is not None:
             self.idx_id = idx
@@ -162,6 +163,8 @@ class IndexEntry:
         f.write(struct.pack("<I", self.lastelapsed))
         f.write(struct.pack("<I", self.lastoffset))
 
+        f.write(struct.pack("<I", self.flag))
+
     def from_item(self, item: Item):
         self.year = _get_tag(item, "year")
         if _get_tag(item, "disctotal") > 1:
@@ -169,7 +172,7 @@ class IndexEntry:
         self.tracknumber = _get_tag(item, "track")
         self.bitrate = round(_get_tag(item, "bitrate") / 1000)
         self.length = round(_get_tag(item, "length") * 1000)
-        self.mtime = _get_tag(item, "mtime")
+        self.mtime = int(_get_tag(item, "mtime"))
 
 
 def _get_tag(item: Item, tag: str) -> int:
@@ -251,74 +254,97 @@ class Database:
 
         self.index: list[IndexEntry] = []
 
-    def add_tag(self, tag: str, value: str, idx: int | None = None) -> int:
+    def add_tag(self, tag: str, value: str, idx: int | None = None):
         if value not in self.tag_data[tag]:
-            offset = self.seek[tag]
-            entry = TagfileEntry(value, offset, idx)
+            entry = TagfileEntry(value, 0, idx)
             self.tag_data[tag][value] = entry
-            self.seek[tag] += entry.length()
-            return offset
-        else:
-            return HEADER_SIZE
 
     def get_str(self, item: Item, key: str) -> str:  # type: ignore
         cast(str, item.get(key))  # type: ignore
 
-    def set_tag(self, tag_a: str, tag_b: str, item: Item, idx: int | None = None) -> int:
+    def set_tag(self, tag_a: str, tag_b: str, item: Item, idx: int | None = None):
         t = item.get(tag_b)
         if t and isinstance(t, str):
-            return self.add_tag(tag_a, t, idx)
-        else:
-            return HEADER_SIZE
+            self.add_tag(tag_a, t, idx)
+        elif self._config.unknown not in self.tag_data[tag_a]:
+            self.add_tag(tag_a, self._config.unknown)
 
-    def set_list_tag(self, tag_a: str, tag_b: str, item: Item) -> int:
+    def set_list_tag(self, tag_a: str, tag_b: str, item: Item):
         t = item.get(tag_b)
         if t and isinstance(t, list):
-            return self.add_tag(tag_a, t[0])
+            self.add_tag(tag_a, t[0])
+
+    def get_tag_seek(self, item: Item, tag_a: str, tag_b: str | None = None) -> Seek:
+        if not tag_b:
+            tag_b = tag_a
+
+        t = item.get(tag_b)
+        if t and isinstance(t, str):
+            return self.tag_data[tag_a][t].seek
         else:
-            return HEADER_SIZE
+            return self.tag_data[tag_a][self._config.unknown].seek
 
-    # TODO figure out how to do multiple genres per item etc
-    def add(self, item: Item):
-        artist_seek = self.set_tag("artist", "artist", item)
-        album_seek = self.set_tag("album", "album", item)
+    def add_item(self, item: Item):
+        """Add an items tags to the tag databases"""
+        self.set_tag("artist", "artist", item)
+        self.set_tag("album", "album", item)
+        self.set_tag("genre", "genre", item)
 
-        genre_seek = HEADER_SIZE
-        genres = item.get("genres")
-        if genres and isinstance(genres, str):
-            for genre in genres.split(";"):
-                genre_seek = self.add_tag("genre", genre.strip())
-
-        idx = len(self.index)
-        title_seek = self.set_tag("title", "title", item, idx)
+        self.set_tag("title", "title", item)
 
         # Absolute Path
         # TODO understand path formats
-        dest = item.destination(path_formats=None, relative_to_libdir=True)  # type: ignore
-        dest = Path(self._config.music) / Path(str(dest, "utf8"))
-        if self._config.extension:
-            dest = dest.with_suffix("." + self._config.extension)
-        self._log.debug(f"writing filename to db: {dest}")
-        filename_seek = self.add_tag("filename", str(dest), idx)
+        self.add_tag("filename", str(self.get_filename(item)))
 
-        composer_seek = self.set_tag("composer", "composer", item)
-        comment_seek = self.set_tag("comment", "comments", item)
-        albumartist_seek = self.set_tag("albumartist", "albumartist", item)
-        grouping_seek = self.set_tag("grouping", "grouping", item)
+        self.set_tag("composer", "composer", item)
+        self.set_tag("comment", "comments", item)
+        self.set_tag("albumartist", "albumartist", item)
+        self.set_tag("grouping", "grouping", item)
 
-        canonicalatist_seek = self.set_tag("canonicalartist", "artist_sort", item)
+        self.set_tag("canonicalartist", "artist_sort", item)
+
+    def get_filename(self, item: Item) -> str:
+        filename = item.destination(path_formats=None, relative_to_libdir=True)  # type: ignore
+        filename = Path(self._config.music) / Path(str(filename, "utf8"))
+
+        if self._config.formats is not None and filename.suffix[1:] not in self._config.formats:
+            filename = filename.with_suffix("." + self._config.formats[0])
+
+        self._log.debug(f"writing filename to db: {filename}")
+        return str(filename)
+
+    def sort(self):
+        """Sort the tag databases to be in alphabetical order"""
+        for tag in self.tag_files:
+            self.tag_data[tag] = dict(sorted(self.tag_data[tag].items()))
+
+            # Set seek values in order
+            for v in self.tag_data[tag].values():
+                offset = self.seek[tag]
+                v.seek = offset
+                self.seek[tag] += v.length()
+
+    def add_index(self, item: Item):
+        """Build the index entry for item to reference the already added tags"""
+
+        idx = len(self.index)
+        self.tag_data["title"][item.get("title")].idx_id = idx  # type: ignore
+
+        filename = self.get_filename(item)
+        self.tag_data["filename"][filename].idx_id = idx
+        filename_seek = self.tag_data["filename"][filename].seek
 
         index = IndexEntry(
-            artist_seek,
-            album_seek,
-            genre_seek,
-            title_seek,
+            self.get_tag_seek(item, "artist"),
+            self.get_tag_seek(item, "album"),
+            self.get_tag_seek(item, "genre"),
+            self.get_tag_seek(item, "title"),
             filename_seek,
-            composer_seek,
-            comment_seek,
-            albumartist_seek,
-            grouping_seek,
-            canonicalatist_seek,
+            self.get_tag_seek(item, "composer"),
+            self.get_tag_seek(item, "comment"),
+            self.get_tag_seek(item, "albumartist"),
+            self.get_tag_seek(item, "grouping"),
+            self.get_tag_seek(item, "canonicalartist", "artist_sort"),
             item,
         )
         self.index.append(index)
@@ -335,8 +361,6 @@ class Database:
             header.write(f)
             for i in self.index:
                 i.write(f)
-
-            f.write(struct.pack("<I", 0))
 
     def write_tag(self, tag: str):
         header = Header(self.seek[tag], len(self.tag_data[tag]))

@@ -100,11 +100,11 @@ class TestHelper:
             ui._raw_main(list(args), self.lib)
         return out.getvalue()
 
-    def add_track(self, **kwargs: str) -> Item:
+    def add_track(self, file: str = "01 Looking Back.opus", **kwargs: str) -> Item:
         values = {}
         values.update(kwargs)
 
-        item = Item.from_path(str(self.fixture_dir / "min.opus"))  # type: ignore
+        item = Item.from_path(str(self.fixture_dir / file))  # type: ignore
         item.add(self.lib)
         item.update(values)
         item.move(MoveOperation.COPY)

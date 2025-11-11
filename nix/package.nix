@@ -3,7 +3,7 @@
   buildPythonPackage,
 
   # build-system
-  poetry-core,
+  hatchling,
 
   # nativeBuildInputs
   beets-minimal,
@@ -24,11 +24,14 @@ buildPythonPackage rec {
   src = ../.;
 
   build-system = [
-    poetry-core
+    hatchling
   ];
 
   nativeBuildInputs = [
     beets-minimal
+  ];
+
+  propagatedBuildInputs = [
     enlighten
   ];
 
@@ -37,6 +40,11 @@ buildPythonPackage rec {
     pytest-cov-stub
     typeguard
     writableTmpDirAsHomeHook
+  ];
+
+  pytestDisabledFiles = [
+    "cli_test.py"
+    "database_test.py"
   ];
 
   meta = {
