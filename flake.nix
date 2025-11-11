@@ -17,7 +17,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
-        packages.default = pkgs.callPackage ./nix/package.nix { };
+        packages.default = pkgs.python3Packages.callPackage ./nix/package.nix { };
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs.python3Packages; [
