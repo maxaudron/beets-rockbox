@@ -245,7 +245,9 @@ class Database:
         }
 
         # Initialize tag data storage
-        self.tag_data: dict[str, dict[str, TagfileEntry]] = {key: {} for key in self.tag_files}
+        self.tag_data: dict[str, dict[str | int, TagfileEntry]] = {
+            key: {} for key in self.tag_files
+        }
 
         # initialize seek offsets with base of 12 to account for the header
         self.seek: dict[str, int] = {}
@@ -254,18 +256,24 @@ class Database:
 
         self.index: list[IndexEntry] = []
 
-    def add_tag(self, tag: str, value: str, idx: int | None = None):
+    def add_tag(self, tag: str, value: str, idx: int | None = None, key: int | None = None):
         if value not in self.tag_data[tag]:
             entry = TagfileEntry(value, 0, idx)
-            self.tag_data[tag][value] = entry
+            k = value
+            if key is not None:
+                k = key
+            self.tag_data[tag][k] = entry
 
     def get_str(self, item: Item, key: str) -> str:  # type: ignore
         cast(str, item.get(key))  # type: ignore
 
-    def set_tag(self, tag_a: str, tag_b: str, item: Item, idx: int | None = None):
+    def set_tag(
+        self, tag_a: str, tag_b: str, item: Item, idx: int | None = None, key: bool = False
+    ):
         t = item.get(tag_b)
         if t and isinstance(t, str):
-            self.add_tag(tag_a, t, idx)
+            k = item.id if key else None
+            self.add_tag(tag_a, t, idx, key=k)
         elif self._config.unknown not in self.tag_data[tag_a]:
             self.add_tag(tag_a, self._config.unknown)
 
@@ -274,12 +282,14 @@ class Database:
         if t and isinstance(t, list):
             self.add_tag(tag_a, t[0])
 
-    def get_tag_seek(self, item: Item, tag_a: str, tag_b: str | None = None) -> Seek:
+    def get_tag_seek(
+        self, item: Item, tag_a: str, tag_b: str | None = None, key: bool = False
+    ) -> Seek:
         if not tag_b:
             tag_b = tag_a
 
-        t = item.get(tag_b)
-        if t and isinstance(t, str):
+        t = item.id if key else item.get(tag_b)
+        if t and isinstance(t, (str, int)):
             return self.tag_data[tag_a][t].seek
         else:
             return self.tag_data[tag_a][self._config.unknown].seek
@@ -290,11 +300,11 @@ class Database:
         self.set_tag("album", "album", item)
         self.set_tag("genre", "genre", item)
 
-        self.set_tag("title", "title", item)
+        self.set_tag("title", "title", item, key=True)
 
         # Absolute Path
         # TODO understand path formats
-        self.add_tag("filename", str(self.get_filename(item)))
+        self.add_tag("filename", str(self.get_filename(item)), key=item.id)
 
         self.set_tag("composer", "composer", item)
         self.set_tag("comment", "comments", item)
@@ -316,7 +326,8 @@ class Database:
     def sort(self):
         """Sort the tag databases to be in alphabetical order"""
         for tag in self.tag_files:
-            self.tag_data[tag] = dict(sorted(self.tag_data[tag].items()))
+            if tag not in ["filename", "title"]:
+                self.tag_data[tag] = dict(sorted(self.tag_data[tag].items()))
 
             # Set seek values in order
             for v in self.tag_data[tag].values():
@@ -328,18 +339,15 @@ class Database:
         """Build the index entry for item to reference the already added tags"""
 
         idx = len(self.index)
-        self.tag_data["title"][item.get("title")].idx_id = idx  # type: ignore
-
-        filename = self.get_filename(item)
-        self.tag_data["filename"][filename].idx_id = idx
-        filename_seek = self.tag_data["filename"][filename].seek
+        self.tag_data["title"][item.id].idx_id = idx  # type: ignore
+        self.tag_data["filename"][item.id].idx_id = idx
 
         index = IndexEntry(
             self.get_tag_seek(item, "artist"),
             self.get_tag_seek(item, "album"),
             self.get_tag_seek(item, "genre"),
-            self.get_tag_seek(item, "title"),
-            filename_seek,
+            self.get_tag_seek(item, "title", key=True),
+            self.get_tag_seek(item, "filename", key=True),
             self.get_tag_seek(item, "composer"),
             self.get_tag_seek(item, "comment"),
             self.get_tag_seek(item, "albumartist"),

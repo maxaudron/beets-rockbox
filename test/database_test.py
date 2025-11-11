@@ -24,7 +24,6 @@ class TestDatabase(TestHelper):
         item2 = self.add_track(file="01 Queendom.opus")
 
         filename1 = "/<HDD0>/Music/Lord Huron/The Cosmic Selector Vol. 1/01 Looking Back.flac"
-        filename2 = "/<HDD0>/Music/AURORA/Infections of a Different Kind (Step I)/01 Queendom.flac"
 
         self.db.add_item(item1)
         self.db.add_item(item2)
@@ -34,19 +33,18 @@ class TestDatabase(TestHelper):
         assert "Lord Huron" in self.db.tag_data["artist"]
         assert "Lord Huron" in self.db.tag_data["canonicalartist"]
         assert "The Cosmic Selector Vol. 1" in self.db.tag_data["album"]
-        assert "Looking Back" in self.db.tag_data["title"]
-        assert filename1 in self.db.tag_data["filename"]
+        assert self.db.tag_data["title"][1].tag_data == bytes("Looking Back\0", encoding="utf8")
+        assert self.db.tag_data["filename"][1].tag_data == bytes(filename1, encoding="utf8") + b'\0'
         assert len(self.db.tag_data["composer"]) == 1
 
         self.db.add_index(item1)
         self.db.add_index(item2)
 
-
-        assert self.db.tag_data["title"]["Looking Back"].idx_id == 0
-        assert self.db.tag_data["title"]["Queendom"].idx_id == 1
+        assert self.db.tag_data["title"][1].idx_id == 0
+        assert self.db.tag_data["title"][2].idx_id == 1
         
-        assert self.db.tag_data["filename"][filename1].idx_id == 0
-        assert self.db.tag_data["filename"][filename2].idx_id == 1
+        assert self.db.tag_data["filename"][1].idx_id == 0
+        assert self.db.tag_data["filename"][2].idx_id == 1
 
         assert self.db.index[0].artist == self.db.tag_data["artist"]["Lord Huron"].seek
         assert self.db.index[1].artist == self.db.tag_data["artist"]["AURORA"].seek
