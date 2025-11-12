@@ -2,10 +2,9 @@ import argparse
 from collections.abc import Sequence
 
 import enlighten
-from beets import util
 from beets.library import Library
 from beets.plugins import BeetsPlugin
-from beets.ui import Subcommand, UserError, print_
+from beets.ui import Subcommand
 from typing_extensions import Never
 
 from beetsplug.rockbox.config import Config
@@ -42,7 +41,7 @@ class RockboxPlugin(BeetsPlugin):
                 pbar.update()
 
         db.sort()
-        
+
         pbar = self.manager.counter(total=len(lib.items()), desc="Building Index", unit="songs")
         for item in lib.items():
             if item.id in matched_ids or self._config.query.match(item):
@@ -50,27 +49,6 @@ class RockboxPlugin(BeetsPlugin):
                 pbar.update()
 
         db.write()
-
-    def copy(self, lib: Library, _: argparse.Namespace):
-        self.setup()
-        db = Database(self._log, lib, self._config)
-        rockbox = self._config.rockbox
-        db_dir = self._config.db
-
-        if not rockbox.is_dir():
-            raise UserError(f"Could not find .rockbox folder: {rockbox!s}")
-
-        util.copy(
-            bytes(str(db_dir / "database_idx.tcd"), encoding="utf8"),
-            bytes(str(rockbox / "database_idx.tcd"), encoding="utf8"),
-            replace=True,
-        )
-        for file in db.tag_files.values():
-            util.copy(
-                bytes(str(file), encoding="utf8"),
-                bytes(str(rockbox / file.name), encoding="utf8"),
-                replace=True,
-            )
 
 
 class RockboxCommand(Subcommand):
@@ -85,9 +63,6 @@ class RockboxCommand(Subcommand):
 
         build = subparsers.add_parser("build")
         build.set_defaults(func=plugin.build)
-
-        copy = subparsers.add_parser("copy")
-        copy.set_defaults(func=plugin.copy)
 
         super().__init__(self.name, parser, self.help, self.aliases)
 

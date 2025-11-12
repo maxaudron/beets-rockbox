@@ -23,16 +23,20 @@ from beetsplug.rockbox.config import Config
 # 18 00 00 00 | FF FF FF FF | 43 68 72 69 | 73 20 43 68 | 72 69 73 74 | 6F 64 6F 75 | 6C 6F 75 00 | 58 58 58 58
 # 10 00 00 00 | FF FF FF FF | E9 99 B3 E5 | A5 95 E8 BF | 85 00 58 58 | 58 58 58 58
 class TagfileEntry:
-    """Single entry in the database file containing the string length, index id and tag string data
-    MAYBE the length is padded to the multiplier of 4 bytes and the str padded with X
-    """
+    """Single entry in the database file containing the string length, index id and tag string data"""
 
     tag_length: int
-    idx_id: int = 0xFFFFFFFF
-    tag_data: bytes
+    """Length of the string of tag_data including the terminating \0"""
 
-    """byte offset used for computing seek positions"""
+    idx_id: int = 0xFFFFFFFF
+    """Index ID in the database index for this entry. Only set for title and
+    filename, else defaults to MAX_INT"""
+
+    tag_data: bytes
+    """UTF-8 encoded string value of the tag, terminated with \0"""
+
     seek: int
+    """byte offset used for computing seek positions"""
 
     def __init__(self, tag_data: str, offset: int, idx: int | None = None):
         self.tag_data = bytes(tag_data + "\0", encoding="utf8")
@@ -188,11 +192,16 @@ HEADER_SIZE = 12
 
 class Header:
     magic: bytes = bytes.fromhex("10 48 43 54")
-    datasize: int = 0
-    entry_count: int = 0
+    """Static Header containing the string TCH and a version number, currently 0x10"""
 
-    """Static byte offset used for computing seek positions"""
+    datasize: int = 0
+    """Size of this file in bytes"""
+
+    entry_count: int = 0
+    """Number of entries in file"""
+
     offset: int = HEADER_SIZE
+    """Static byte offset used for computing seek positions"""
 
     def __init__(self, datasize: int, entry_count: int):
         self.datasize = datasize

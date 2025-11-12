@@ -9,11 +9,10 @@ class Config:
     db: Path
     """Directory to where the rockbox database_*.tcd files are written to."""
 
-    rockbox: Path
-    """Directory where your .rockbox folder is located. Used for copying over the database to the device"""
-
     music: str
-    """Absolute path where music is stored on the rockbox device. Example: "/<HDD0>/Music"."""
+    """Absolute path where music is stored on the rockbox device. Example: "/<HDD0>/Music".
+    This is used to set the filename references for Items.
+    """
 
     formats: list[str] | None = None
     """If set, overrides the extension of any files with an extension not in this list
@@ -37,9 +36,6 @@ class Config:
         self.db = config["db"].as_path()  # pyright: ignore
         assert isinstance(self.db, Path)
         
-        self.rockbox = config["rockbox"].as_path()  # pyright: ignore
-        assert isinstance(self.rockbox, Path)
-
         self.music = config["music"].as_str()  # pyright: ignore
         assert isinstance(self.music, str)
 
