@@ -12,6 +12,7 @@ songs/sec for building the DB and about 3000 songs/sec for indexing.
 * [x] Build the database
 * [x] Sort tags alphabetical
 * [x] Write the Database to the device
+* [x] Progress Bar
 * [ ] A way to manage statistics data collected by rockbox and sync it with the
   beets library
 * [ ] Syncing of music to the device, see [beets-alternatives](https://github.com/geigerzaehler/beets-alternatives)
