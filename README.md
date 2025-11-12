@@ -1,4 +1,4 @@
-= beets-rockbox
+# beets-rockbox
 
 beets plugin to build the rockbox database on your computer, directly from your
 beets library. this is a test to see if
@@ -7,22 +7,19 @@ This should be significantly faster than building the database on device,
 taking mere seconds instead of minutes. On a Ryzen 9 3950x i get about 650
 songs/sec for building the DB and about 3000 songs/sec for indexing.
 
-:toc:
-
-== Features
+## Features
 
 * [x] Build the database
 * [x] Sort tags alphabetical
 * [x] Write the Database to the device
 * [ ] A way to manage statistics data collected by rockbox and sync it with the
   beets library
-* [ ] Syncing of music to the device, see beets-alternatives
+* [ ] Syncing of music to the device, see [beets-alternatives](https://github.com/geigerzaehler/beets-alternatives)
 * [ ] Scrobbling
 
-== Configuration
+## Configuration
 
-[source,yaml] 
-----
+```yaml
 plugins:
   - "rockbox"
 
@@ -44,19 +41,19 @@ rockbox:
 
   # Optional query to restrict which files are included in rockbox database 
   # Usually set to the same value as the beets-alternatives collection. 
-  query: "ipod=true"
+  query: "ipod#true"
 
   # String that is used as placeholder for unknown values in the database. 
   # Default: "<Unknown>" 
   unknown: "<Unknown>" 
-----
+```
 
-== CLI Usage
+## CLI Usage
 
-Run `+beet rock build+` to build the database and write it to your specified
+Run `beet rock build` to build the database and write it to your specified
 location.
 
-== Limitations
+## Limitations
 
 Currently, the database is built from the main beets database/library and no
 path formats are set, so if you are using path formats to organize your library
